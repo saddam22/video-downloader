@@ -39,7 +39,7 @@ import java.util.*;
 public class MediaService {
     public static final int MAX_MANIFEST = 2 * 1024 * 1024;
 
-    public record Report(@NotBlank @Size(max = 8192) String pageUrl, @Size(max = 500) String title, @Size(max = 4) String browser,
+    public record Report(@NotBlank @Size(max = 8192) String pageUrl, @Size(max = 500) String title, @Size(max = 10) String browser,
                          @Size(max = 50) List<@Valid SourceReport> sources) {}
 
     /** width/height/duration come from the decoded HTMLVideoElement (videoWidth/videoHeight/duration). */
@@ -312,9 +312,16 @@ public class MediaService {
         StringBuilder sb = new StringBuilder();
         if (height != null) sb.append(height).append("p · ");
         sb.append(container.toUpperCase(Locale.ROOT));
-        if (size != null) sb.append(" · ").append(String.format(Locale.ROOT, "%.1f MB", size / 1048576.0));
+        if (size != null) sb.append(" · ").append(humanSize(size));
         sb.append(bitrate(bandwidth));
         return sb.toString();
+    }
+
+    static String humanSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format(Locale.ROOT, "%.0f KB", bytes / 1024.0);
+        if (bytes < 1024L * 1024 * 1024) return String.format(Locale.ROOT, "%.1f MB", bytes / 1048576.0);
+        return String.format(Locale.ROOT, "%.2f GB", bytes / 1073741824.0);
     }
 
     private static String bitrate(Long bandwidth) {

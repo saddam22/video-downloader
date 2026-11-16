@@ -208,6 +208,19 @@ class DownloadApiTest extends BackendTestBase {
     }
 
     @Test
+    void browserMediaReportsFromEveryBrowserAreAccepted() throws Exception {
+        entitlements.apply(new EntitlementService.State(EntitlementService.Tier.PRO, EntitlementService.Source.ONLINE, "active", List.of("pro"), 0L, null));
+        files.put("/m/movie.mp4", random(40_000)).contentType = "video/mp4";
+        record Src(String url, Integer width, Integer height) {}
+        record Report(String pageUrl, String title, String browser, List<Src> sources) {}
+        for (String b : List.of("CHROME", "EDGE", "FIREFOX")) {
+            JsonNode r = call("POST", "/api/v1/browser/media", new Report("https://site.example/watch", "Movie", b,
+                    List.of(new Src(files.url("/m/movie.mp4"), 1280, 720))), 200);
+            assertThat(r.get(0).get("formats").get(0).get("label").asText()).startsWith("720p · MP4");
+        }
+    }
+
+    @Test
     void historyExportIsCsvWithFormulaProtection() throws Exception {
         files.put("/csv/=cmd.txt", random(10));
         String id = call("POST", "/api/v1/downloads", new Create(files.url("/csv/=cmd.txt"), null, null, null, null), 201).get("id").asText();
