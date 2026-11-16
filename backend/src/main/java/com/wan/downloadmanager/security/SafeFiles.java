@@ -78,16 +78,26 @@ public final class SafeFiles {
      * path that does not exist yet ("name (1).ext", "name (2).ext", …) — existing files are never overwritten.
      */
     public static Path uniqueTarget(Path dir, String name) {
+        return uniqueTarget(dir, name, null);
+    }
+
+    /** As {@link #uniqueTarget(Path, String)}, ignoring {@code ownTemp} (the caller's own partial file). */
+    public static Path uniqueTarget(Path dir, String name, Path ownTemp) {
         Path root = dir.toAbsolutePath().normalize();
         String safe = sanitize(name);
         Path candidate = inside(root, safe);
         String ext = extension(safe);
         String stem = ext.isEmpty() ? safe : safe.substring(0, safe.length() - ext.length() - 1);
-        for (int i = 1; Files.exists(candidate) || Files.exists(candidate.resolveSibling(candidate.getFileName() + ".wdmpart")); i++) {
+        for (int i = 1; Files.exists(candidate) || otherPartial(candidate, ownTemp); i++) {
             if (i > 9999) throw WdmException.conflict("file_exists", "Too many files named " + safe);
             candidate = inside(root, stem + " (" + i + ")" + (ext.isEmpty() ? "" : "." + ext));
         }
         return candidate;
+    }
+
+    private static boolean otherPartial(Path candidate, Path ownTemp) {
+        Path partial = candidate.resolveSibling(candidate.getFileName() + ".wdmpart");
+        return Files.exists(partial) && (ownTemp == null || !partial.toAbsolutePath().normalize().equals(ownTemp.toAbsolutePath().normalize()));
     }
 
     /** Resolves a single component inside root or throws (path traversal protection). */
