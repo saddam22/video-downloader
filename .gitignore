@@ -1,0 +1,10 @@
+target/
+*.class
+*.log
+.idea/
+*.iml
+.vscode/
+node_modules/
+browser-extensions/dist/
+.DS_Store
+*.wdmpart

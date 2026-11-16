@@ -1,0 +1,374 @@
+From 5b40bf911583f8076a7e73221896b79789cc70a6 Mon Sep 17 00:00:00 2001
+From: WAN Download Manager <noreply@anthropic.com>
+Date: Mon, 16 Nov 2026 16:43:27 +0000
+Subject: [PATCH] Add WAN Download Manager public native client (PKCE,
+ loopback, refresh tokens, revocation, wan_entitlements)
+
+---
+ server/src/config.ts              |  22 +++++
+ server/src/oidc/provider.ts       |  43 ++++++++-
+ server/src/routes/platformApi.ts  |   3 +-
+ server/test/native-client.test.ts | 145 ++++++++++++++++++++++++++++++
+ src/api/catalog.ts                |   3 +
+ src/i18n/locales/bn.ts            |   1 +
+ src/i18n/locales/en.ts            |   1 +
+ 7 files changed, 213 insertions(+), 5 deletions(-)
+ create mode 100644 server/test/native-client.test.ts
+
+diff --git a/server/src/config.ts b/server/src/config.ts
+index 8ac9680..76c4ecd 100644
+--- a/server/src/config.ts
++++ b/server/src/config.ts
+@@ -7,7 +7,15 @@ import { smsConfig, type SmsConfig } from "./lib/sms.ts";
+ 
+ export interface OidcClientConfig {
+   client_id: string;
++  /** Empty for a public (native) client. */
+   client_secret: string;
++  /**
++   * Public native application (RFC 8252), e.g. the WAN Download Manager desktop app: no client
++   * secret (token_endpoint_auth_method "none", PKCE S256 still required), loopback redirect
++   * URIs whose port may vary, rotating refresh tokens with the offline_access scope.
++   * A public client can never use the Platform API.
++   */
++  public?: boolean;
+   redirect_uris: string[];
+   post_logout_redirect_uris?: string[];
+   /** Hub platform id this client belongs to (its entitlement is recorded on sign-in). */
+@@ -453,6 +461,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+         backchannel_logout_uri: `${printforgeWeb}/auth/wan_identity/backchannel-logout`,
+       });
+     }
++    // WAN Download Manager (saddam22/video-downloader): a public desktop client, so no secret exists.
++    // On by default in development; in production only with WDM_ENABLED=true.
++    if (env.WDM_ENABLED === "true" || (!production && env.WDM_ENABLED !== "false")) {
++      clients.push({
++        client_id: "wan-download-manager",
++        client_secret: "",
++        public: true,
++        // Loopback redirect (RFC 8252 §7.3): the app listens on 127.0.0.1 with an ephemeral port.
++        redirect_uris: ["http://127.0.0.1/callback"],
++        post_logout_redirect_uris: ["http://127.0.0.1/signed-out"],
++        platformId: "wan-download-manager",
++      });
++    }
+     // EduKhata (saddam22/wan-fyp): on by default in development, in production only with a secret.
+     const edkSecret = env.EDK_CLIENT_SECRET ?? (production ? "" : DEV_EDK_SECRET);
+     if (edkSecret) {
+@@ -517,6 +538,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+       "wan-vox": voxWeb,
+       printforge: printforgeWeb,
+       edukhata: edkWeb,
++      "wan-download-manager": "",
+       edugame: edugameWeb,
+       "wan-game-studio": gameStudioWeb,
+       wanhats: wanhatsWeb,
+diff --git a/server/src/oidc/provider.ts b/server/src/oidc/provider.ts
+index f959390..0289601 100644
+--- a/server/src/oidc/provider.ts
++++ b/server/src/oidc/provider.ts
+@@ -44,6 +44,21 @@ async function hubAccount({ db }: Deps, ctx: KoaContextWithOIDC): Promise<string
+ 
+ export async function createProvider(deps: Deps): Promise<Provider> {
+   const { db, config } = deps;
++  /** The person's entitlement on one platform only; never another platform's. */
++  const entitlementClaim = async (platformId: string, userId: string) => {
++    const e = (
++      await db.query<{ status: string; roles: string[]; granted_at: Date | null }>(
++        "select status, roles, granted_at from entitlements where user_id = $1 and platform_id = $2",
++        [userId, platformId],
++      )
++    ).rows[0];
++    return {
++      platform: platformId,
++      status: e?.status ?? "none",
++      roles: e?.roles ?? [],
++      granted_at: e?.granted_at ? Math.floor(e.granted_at.getTime() / 1000) : null,
++    };
++  };
+   const policy = interactionPolicy.base();
+   // Signing out of the hub must sign out of "WAN login" too: if the hub session is gone
+   // (or belongs to someone else), ask for login again even if the OIDC session remains.
+@@ -62,17 +77,32 @@ export async function createProvider(deps: Deps): Promise<Provider> {
+     adapter: pgAdapter(db),
+     clients: config.clients.map((c) => ({
+       client_id: c.client_id,
+-      client_secret: c.client_secret,
++      ...(c.public
++        ? {
++            application_type: "native" as const,
++            token_endpoint_auth_method: "none" as const,
++            grant_types: ["authorization_code", "refresh_token"],
++          }
++        : {
++            client_secret: c.client_secret,
++            token_endpoint_auth_method: "client_secret_basic" as const,
++            grant_types: ["authorization_code"],
++          }),
+       redirect_uris: c.redirect_uris,
+       post_logout_redirect_uris: c.post_logout_redirect_uris ?? [],
+-      grant_types: ["authorization_code"],
+       response_types: ["code"],
+-      token_endpoint_auth_method: "client_secret_basic",
+       ...(c.backchannel_logout_uri
+         ? { backchannel_logout_uri: c.backchannel_logout_uri, backchannel_logout_session_required: false }
+         : {}),
+     })),
+     pkce: { required: () => true },
++    // offline_access: refresh tokens, honoured only for clients allowed the refresh_token grant
++    // (the public desktop client). wan_entitlements: the person's entitlement on the calling
++    // client's own platform (status + roles), so a native app can read its tier without a secret.
++    scopes: ["openid", "offline_access", "wan_entitlements"],
++    issueRefreshToken: async (_ctx, client, code) =>
++      client.grantTypeAllowed("refresh_token") && code.scopes.has("offline_access"),
++    rotateRefreshToken: true,
+     // "screen_hint=signup" (de-facto convention): open registration instead of login.
+     extraParams: ["screen_hint"],
+     cookies: { keys: config.cookieKeys, long: { secure: config.cookieSecure }, short: { secure: config.cookieSecure } },
+@@ -83,13 +113,15 @@ export async function createProvider(deps: Deps): Promise<Provider> {
+       profile: ["name", "preferred_username", "locale", "birthdate", "updated_at"],
+       email: ["email", "email_verified"],
+       phone: ["phone_number", "phone_number_verified"],
++      wan_entitlements: ["wan_entitlement"],
+     },
+     // The ID token goes server-to-server (platform backends), so carry the claims in it.
+     conformIdTokenClaims: false,
+-    async findAccount(_ctx, sub) {
++    async findAccount(ctx, sub) {
+       if (!/^[0-9a-f-]{36}$/.test(sub)) return undefined;
+       const u = await findUserById(db, sub);
+       if (!u) return undefined;
++      const platformId = config.clients.find((c) => c.client_id === ctx.oidc?.client?.clientId)?.platformId;
+       return {
+         accountId: u.id,
+         async claims() {
+@@ -104,6 +136,7 @@ export async function createProvider(deps: Deps): Promise<Provider> {
+             email_verified: u.email ? !!u.email_verified_at : undefined,
+             phone_number: u.phone ?? undefined,
+             phone_number_verified: u.phone ? !!u.phone_verified_at : undefined,
++            wan_entitlement: platformId ? await entitlementClaim(platformId, u.id) : undefined,
+           };
+         },
+       };
+@@ -115,6 +148,8 @@ export async function createProvider(deps: Deps): Promise<Provider> {
+     features: {
+       devInteractions: { enabled: false },
+       rpInitiatedLogout: { enabled: true },
++      // RFC 7009: lets the desktop app revoke its refresh token at sign-out.
++      revocation: { enabled: true },
+       // Logout tokens to platforms that registered a back-channel URI (sent by oidc/backchannel.ts).
+       backchannelLogout: { enabled: true },
+       // A client with a `resource` (e.g. WAN Ads → its API) gets JWT access tokens for exactly
+diff --git a/server/src/routes/platformApi.ts b/server/src/routes/platformApi.ts
+index ad3901e..c04288c 100644
+--- a/server/src/routes/platformApi.ts
++++ b/server/src/routes/platformApi.ts
+@@ -25,7 +25,8 @@ function clientFrom(req: FastifyRequest, clients: OidcClientConfig[]): OidcClien
+   const sep = decoded.indexOf(":");
+   const id = decodeURIComponent(decoded.slice(0, sep));
+   const secret = decodeURIComponent(decoded.slice(sep + 1));
+-  const client = clients.find((c) => c.client_id === id);
++  // Public (native) clients have no secret and never use the Platform API.
++  const client = clients.find((c) => c.client_id === id && !c.public);
+   // Compare against a dummy when the id is unknown, so timing doesn't reveal valid ids.
+   const ok = safeEqual(secret, client?.client_secret ?? "x".repeat(40));
+   if (sep < 0 || !client || !ok) throw new HubError("unauthorized", "Invalid client credentials");
+diff --git a/server/test/native-client.test.ts b/server/test/native-client.test.ts
+new file mode 100644
+index 0000000..42f50a8
+--- /dev/null
++++ b/server/test/native-client.test.ts
+@@ -0,0 +1,145 @@
++import assert from "node:assert/strict";
++import { createHash, randomBytes } from "node:crypto";
++import { after, before, describe, it } from "node:test";
++import { createLocalJWKSet, jwtVerify } from "jose";
++import { Browser, harness, register, type Harness } from "./helpers.ts";
++
++/** WAN Download Manager: a public native client (RFC 8252) — no secret, loopback redirect, refresh tokens. */
++let h: Harness;
++before(async () => {
++  h = await harness();
++});
++after(async () => {
++  await h.close();
++});
++
++const CLIENT = "wan-download-manager";
++const ISSUER = "http://localhost:4100/oidc";
++const FORM = { "content-type": "application/x-www-form-urlencoded" };
++
++function pkce() {
++  const verifier = randomBytes(32).toString("base64url");
++  return { verifier, challenge: createHash("sha256").update(verifier).digest("base64url") };
++}
++
++async function follow(b: Browser, url: string, redirect: string) {
++  let res = await b.get(url);
++  for (let i = 0; i < 10 && res.statusCode >= 300 && res.statusCode < 400; i++) {
++    const loc = String(res.headers.location);
++    if (loc.startsWith(redirect) || loc.startsWith("/#/")) return loc;
++    res = await b.get(loc.replace("http://localhost:4100", ""));
++  }
++  return res.headers.location ? String(res.headers.location) : null;
++}
++
++async function signIn(b: Browser, redirect = "http://127.0.0.1:53682/callback", scope = "openid profile email offline_access wan_entitlements") {
++  const { verifier, challenge } = pkce();
++  const q = new URLSearchParams({
++    client_id: CLIENT,
++    response_type: "code",
++    scope,
++    redirect_uri: redirect,
++    state: "s1",
++    nonce: "n1",
++    prompt: "consent",
++    code_challenge: challenge,
++    code_challenge_method: "S256",
++  });
++  const location = await follow(b, `/oidc/auth?${q}`, redirect);
++  return { location, verifier, redirect };
++}
++
++const post = (url: string, body: Record<string, string>) =>
++  h.app.inject({ method: "POST", url, headers: FORM, payload: new URLSearchParams(body).toString() });
++
++describe("WAN Download Manager (public native client)", () => {
++  it("is listed in discovery capabilities: no-secret auth, refresh, revocation, wan_entitlements", async () => {
++    const d = (await h.app.inject({ url: "/oidc/.well-known/openid-configuration" })).json();
++    assert.ok(d.token_endpoint_auth_methods_supported.includes("none"));
++    assert.ok(d.scopes_supported.includes("offline_access"));
++    assert.ok(d.scopes_supported.includes("wan_entitlements"));
++    assert.ok(d.claims_supported.includes("wan_entitlement"));
++    assert.equal(d.revocation_endpoint, `${ISSUER}/token/revocation`);
++  });
++
++  it("signs in through a loopback redirect on any port, exchanges the code without a secret and gets a refresh token", async () => {
++    const { browser, userId } = await register(h, { contact: "dm1@example.com", username: "dm_user1", fullName: "Nusrat Jahan" });
++    const { location, verifier, redirect } = await signIn(browser, "http://127.0.0.1:61001/callback");
++    assert.ok(location?.startsWith(redirect), `got ${location}`);
++    const code = new URL(location!).searchParams.get("code")!;
++    const res = await post("/oidc/token", { grant_type: "authorization_code", client_id: CLIENT, code, redirect_uri: redirect, code_verifier: verifier });
++    assert.equal(res.statusCode, 200, res.body);
++    const tokens = res.json();
++    assert.ok(tokens.refresh_token, "refresh token issued for offline_access");
++    const jwks = createLocalJWKSet((await h.app.inject({ url: "/oidc/jwks" })).json());
++    const { payload } = await jwtVerify(tokens.id_token, jwks, { issuer: ISSUER, audience: CLIENT });
++    assert.equal(payload.sub, userId);
++    assert.equal(payload.nonce, "n1");
++    const ent = payload.wan_entitlement as { platform: string; status: string; roles: string[] };
++    assert.equal(ent.platform, CLIENT);
++    assert.equal(ent.status, "active");
++    assert.deepEqual(ent.roles, ["free"]);
++
++    // userinfo with the bearer token carries the same claim.
++    const ui = await h.app.inject({ url: "/oidc/me", headers: { authorization: `Bearer ${tokens.access_token}` } });
++    assert.equal(ui.statusCode, 200, ui.body);
++    assert.equal(ui.json().wan_entitlement.status, "active");
++
++    // Refresh rotates the token; the old one is then refused.
++    const r1 = await post("/oidc/token", { grant_type: "refresh_token", client_id: CLIENT, refresh_token: tokens.refresh_token });
++    assert.equal(r1.statusCode, 200, r1.body);
++    assert.notEqual(r1.json().refresh_token, tokens.refresh_token);
++    const reused = await post("/oidc/token", { grant_type: "refresh_token", client_id: CLIENT, refresh_token: tokens.refresh_token });
++    assert.equal(reused.statusCode, 400);
++
++    // Revocation (sign-out) ends the refresh token.
++    const rt = r1.json().refresh_token;
++    assert.equal((await post("/oidc/token/revocation", { client_id: CLIENT, token: rt, token_type_hint: "refresh_token" })).statusCode, 200);
++    assert.equal((await post("/oidc/token", { grant_type: "refresh_token", client_id: CLIENT, refresh_token: rt })).statusCode, 400);
++  });
++
++  it("the entitlement claim reflects the platform's decision (pro tier, suspension)", async () => {
++    const { browser, userId } = await register(h, { contact: "dm2@example.com", username: "dm_user2" });
++    await h.db.query(
++      "insert into entitlements (user_id, platform_id, status, roles, granted_at) values ($1, $2, 'active', '{pro}', now())",
++      [userId, CLIENT],
++    );
++    const { location, verifier, redirect } = await signIn(browser);
++    const code = new URL(location!).searchParams.get("code")!;
++    const tokens = (await post("/oidc/token", { grant_type: "authorization_code", client_id: CLIENT, code, redirect_uri: redirect, code_verifier: verifier })).json();
++    const jwks = createLocalJWKSet((await h.app.inject({ url: "/oidc/jwks" })).json());
++    const { payload } = await jwtVerify(tokens.id_token, jwks, { issuer: ISSUER, audience: CLIENT });
++    assert.deepEqual((payload.wan_entitlement as { roles: string[] }).roles, ["pro"]);
++
++    await h.db.query("update entitlements set status = 'suspended' where user_id = $1 and platform_id = $2", [userId, CLIENT]);
++    const again = await signIn(browser);
++    assert.match(again.location ?? "", /error=access_denied/);
++  });
++
++  it("refuses: no PKCE, a non-loopback redirect, an http redirect to localhost name, and the Platform API", async () => {
++    const { browser } = await register(h, { contact: "dm3@example.com", username: "dm_user3" });
++    const noPkce = await browser.get(
++      `/oidc/auth?${new URLSearchParams({ client_id: CLIENT, response_type: "code", scope: "openid", redirect_uri: "http://127.0.0.1:5000/callback" })}`,
++    );
++    assert.match(String(noPkce.headers.location ?? noPkce.body), /code_challenge|invalid_request/);
++    const evil = await browser.get(
++      `/oidc/auth?${new URLSearchParams({ client_id: CLIENT, response_type: "code", scope: "openid", redirect_uri: "http://evil.example/callback", code_challenge: pkce().challenge, code_challenge_method: "S256" })}`,
++    );
++    assert.equal(evil.statusCode, 400);
++    assert.match(evil.body, /redirect_uri/);
++
++    // A public client has no secret; the Platform API must never accept it (not even with an empty or dummy secret).
++    for (const secret of ["", "x".repeat(40)]) {
++      const res = await h.app.inject({
++        url: "/platform-api/v1/access-requests",
++        headers: { authorization: `Basic ${Buffer.from(`${CLIENT}:${secret}`).toString("base64")}` },
++      });
++      assert.equal(res.statusCode, 401);
++    }
++  });
++
++  it("confidential clients are unchanged: no refresh tokens, secret required", async () => {
++    const d = h.config.clients.find((c) => c.client_id === "amar-gramer-golpo")!;
++    assert.ok(!d.public && d.client_secret.length >= 32);
++  });
++});
+diff --git a/src/api/catalog.ts b/src/api/catalog.ts
+index 4aaf8eb..b305628 100644
+--- a/src/api/catalog.ts
++++ b/src/api/catalog.ts
+@@ -33,6 +33,7 @@ export const PLATFORMS: Platform[] = [
+   { id: 'wan-game-studio', name: 'WAN Game AI Studio', taglineKey: 'platforms.gamestudio', icon: 'elearning', accent: '#2563EB', launchUrl: 'http://localhost:3000', selfServiceSignup: true },
+   { id: 'wanhats', name: 'WANHATS', taglineKey: 'platforms.wanhats', icon: 'elearning', accent: '#1D4ED8', launchUrl: 'http://localhost:3000', selfServiceSignup: true, adminPath: '/admin' },
+   { id: 'doodle-studio', name: 'WAN DOODLE STUDIO', taglineKey: 'platforms.doodle-studio', icon: 'business', accent: '#F59E0B', launchUrl: 'http://localhost:5173', selfServiceSignup: true },
++  { id: 'wan-download-manager', name: 'WAN Download Manager', taglineKey: 'platforms.downloadManager', icon: 'business', accent: '#1D5BF5', launchUrl: 'https://wan.example/download-manager', selfServiceSignup: true },
+   { id: 'edukhata', name: 'EduKhata', taglineKey: 'platforms.edukhata', icon: 'notebook', accent: '#1D4ED8', launchUrl: 'http://localhost:3200', selfServiceSignup: true },
+   { id: 'ads', name: 'WAN Ads', taglineKey: 'platforms.ads', icon: 'business', accent: '#0F766E', launchUrl: 'http://localhost:3300', selfServiceSignup: true },
+   { id: 'agriculture', name: 'Agriculture', taglineKey: 'platforms.agriculture', icon: 'agriculture', accent: '#059669', launchUrl: 'https://agri.wan.example', selfServiceSignup: true },
+@@ -86,6 +87,8 @@ export const REQUESTABLE_ROLES: Record<string, RequestableRole[]> = {
+   // Teacher and staff roles are granted inside WANHATS by its administrators, never requested here.
+   wanhats: [{ id: 'member', name: 'শিক্ষার্থী', description: 'বিশ্ববিদ্যালয় ভর্তি প্রস্তুতি: প্রশ্নব্যাংক, মডেল টেস্ট ও ফলাফল বিশ্লেষণ' }],
+   'doodle-studio': [{ id: 'member', name: 'ক্রিয়েটর', description: 'হোয়াইটবোর্ড অ্যানিমেশন, ডুডল ভিডিও ও এআই এক্সপ্লেইনার তৈরি করুন' }],
++  // Tier roles (free/pro/business) are set by the platform owner through the Platform API; only Free is self-service.
++  'wan-download-manager': [{ id: 'free', name: 'free', description: 'WAN Download Manager desktop app (Free)' }],
+   edukhata: [{ id: 'member', name: 'Member', description: 'Order assignments as a student, or follow your child as a guardian' }],
+   ads: [{ id: 'advertiser', name: 'Advertiser', description: 'Create and run ads on WAN platforms' }],
+   agriculture: [{ id: 'farmer', name: 'Farmer', description: 'Get advisory and join the farmer community' }],
+diff --git a/src/i18n/locales/bn.ts b/src/i18n/locales/bn.ts
+index 428c472..439b6c8 100644
+--- a/src/i18n/locales/bn.ts
++++ b/src/i18n/locales/bn.ts
+@@ -213,6 +213,7 @@ const bn: MessagesShape = {
+     wanbahjahkas: 'কর্পোরেট গ্রুপ · কোম্পানি · পরবর্তী প্রকল্পে ভোট',
+     wanhats: 'বিশ্ববিদ্যালয় ভর্তি প্রস্তুতি · প্রশ্নব্যাংক · মডেল টেস্ট',
+     'doodle-studio': 'হোয়াইটবোর্ড অ্যানিমেশন · ডুডল ভিডিও · এআই এক্সপ্লেইনার',
++    downloadManager: 'ডেস্কটপ ডাউনলোড · ভিডিও গ্র্যাবার · ব্রাউজার ইন্টিগ্রেশন',
+     edukhata: 'অ্যাসাইনমেন্ট · প্র্যাকটিক্যাল খাতা · যাচাইকৃত মেন্টর',
+     go: 'প্ল্যাটফর্মে যান', request: 'অ্যাক্সেস অনুরোধ করুন', pending: 'অনুরোধ অপেক্ষমাণ', noAccess: 'অ্যাক্সেস নেই',
+     active: 'সক্রিয়', rejected: 'গৃহীত হয়নি', suspended: 'স্থগিত', roles: 'আপনার রোল',
+diff --git a/src/i18n/locales/en.ts b/src/i18n/locales/en.ts
+index c335c19..5f6403e 100644
+--- a/src/i18n/locales/en.ts
++++ b/src/i18n/locales/en.ts
+@@ -211,6 +211,7 @@ const en = {
+     wanbahjahkas: 'Corporate group · Companies · Vote on the next project',
+     wanhats: 'University admission prep · Question bank · Model tests',
+     'doodle-studio': 'Whiteboard animation · Doodle videos · AI explainers',
++    downloadManager: 'Desktop downloads · Video grabber · Browser integration',
+     edukhata: 'Assignments · Practical khata · Verified mentors',
+     go: 'Go to platform', request: 'Request access', pending: 'Request pending', noAccess: 'No access',
+     active: 'Active', rejected: 'Declined', suspended: 'Suspended', roles: 'Your roles',
+-- 
+2.43.0
+
