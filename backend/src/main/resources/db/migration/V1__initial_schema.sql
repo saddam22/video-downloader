@@ -27,6 +27,7 @@ CREATE TABLE downloads (
     final_url        TEXT,
     page_url         TEXT,
     file_name        TEXT NOT NULL,
+    name_locked      INTEGER NOT NULL DEFAULT 0 CHECK (name_locked IN (0, 1)), -- 1: user chose the name
     save_dir         TEXT NOT NULL,
     temp_path        TEXT,
     category_id      TEXT REFERENCES download_categories (id) ON DELETE SET NULL,

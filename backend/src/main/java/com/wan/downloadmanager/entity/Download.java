@@ -19,6 +19,8 @@ public class Download {
     private String pageUrl;
     @Column(name = "file_name")
     private String fileName;
+    @Column(name = "name_locked")
+    private boolean nameLocked;
     @Column(name = "save_dir")
     private String saveDir;
     @Column(name = "temp_path")
@@ -76,6 +78,8 @@ public class Download {
     public void setPageUrl(String pageUrl) { this.pageUrl = pageUrl; }
     public String getFileName() { return fileName; }
     public void setFileName(String fileName) { this.fileName = fileName; }
+    public boolean isNameLocked() { return nameLocked; }
+    public void setNameLocked(boolean nameLocked) { this.nameLocked = nameLocked; }
     public String getSaveDir() { return saveDir; }
     public void setSaveDir(String saveDir) { this.saveDir = saveDir; }
     public String getTempPath() { return tempPath; }

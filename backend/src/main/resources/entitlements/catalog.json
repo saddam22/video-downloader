@@ -1,0 +1,22 @@
+{
+  "_comment": "Feature catalog per tier. Tiers come from the WAN Identity Hub entitlement roles on platform 'wan-download-manager' (free/pro/business). No prices: WAN has no subscription catalog yet (docs/WAN-IDENTITY-AUDIT.md, gap G5).",
+  "tiers": {
+    "FREE": {
+      "features": ["download.basic", "download.resume", "browser.integration"],
+      "maxConnections": 1,
+      "maxConcurrent": 2
+    },
+    "PRO": {
+      "features": ["download.basic", "download.resume", "browser.integration", "download.multithread", "download.batch",
+                   "download.scheduler", "video.detection", "video.quality", "media.conversion"],
+      "maxConnections": 16,
+      "maxConcurrent": 16
+    },
+    "BUSINESS": {
+      "features": ["download.basic", "download.resume", "browser.integration", "download.multithread", "download.batch",
+                   "download.scheduler", "video.detection", "video.quality", "media.conversion", "business.license"],
+      "maxConnections": 16,
+      "maxConcurrent": 16
+    }
+  }
+}
