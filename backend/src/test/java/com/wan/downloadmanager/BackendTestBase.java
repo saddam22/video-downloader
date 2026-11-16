@@ -16,6 +16,7 @@ public abstract class BackendTestBase {
     static {
         try {
             dataDir = Files.createTempDirectory("wdm-test");
+            System.setProperty("wan.default-download-dir", Files.createTempDirectory("wdm-downloads").toString());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

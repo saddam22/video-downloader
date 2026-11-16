@@ -32,7 +32,9 @@ public class SettingsService {
     }
 
     public static Settings defaults() {
-        String downloads = Path.of(System.getProperty("user.home"), "Downloads", "WAN").toString();
+        String override = System.getProperty("wan.default-download-dir");
+        String downloads = override != null && !override.isBlank() ? override
+                : Path.of(System.getProperty("user.home"), "Downloads", "WAN").toString();
         return new Settings("SYSTEM", "en", false, false, true, true,
                 downloads, 8, 3, 0, 5, true, true,
                 true, true, true, true, true, List.of(),

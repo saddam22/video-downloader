@@ -25,6 +25,7 @@ public class MockHttpServer implements AutoCloseable {
         /** Sleep this many ms per 16 KiB chunk (slow server for pause tests). */
         public volatile int delayPerChunkMs;
         public volatile String contentDisposition;
+        public volatile String contentType = "application/octet-stream";
         public final AtomicInteger requests = new AtomicInteger();
         public final AtomicInteger rangedRequests = new AtomicInteger();
 
@@ -98,7 +99,7 @@ public class MockHttpServer implements AutoCloseable {
             if (r.ranges) ex.getResponseHeaders().add("Accept-Ranges", "bytes");
             if (r.etag != null) ex.getResponseHeaders().add("ETag", r.etag);
             if (r.contentDisposition != null) ex.getResponseHeaders().add("Content-Disposition", r.contentDisposition);
-            ex.getResponseHeaders().add("Content-Type", "application/octet-stream");
+            ex.getResponseHeaders().add("Content-Type", r.contentType);
             long len = end - start + 1;
             ex.sendResponseHeaders(status, len);
             boolean drop = r.dropAfter >= 0 && r.failuresLeft.getAndUpdate(v -> Math.max(0, v - 1)) > 0;

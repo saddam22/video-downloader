@@ -65,6 +65,104 @@ public class DownloadService {
 
     private record Live(long downloaded, long speedBps, int activeConnections, long lastPersist) {}
 
+    /**
+     * Runs downloads that are not a single HTTP resource (HLS streams). It must report through
+     * {@link #externalProgress}, {@link #externalCompleted}, {@link #externalFailed} and {@link #externalStopped}.
+     */
+    public interface ExternalRunner {
+        boolean handles(Download d);
+        void start(Download d);
+        void stop(String id);
+        boolean isRunning(String id);
+        int activeCount();
+    }
+
+    private volatile ExternalRunner external;
+
+    public void setExternalRunner(ExternalRunner runner) {
+        this.external = runner;
+    }
+
+    private boolean running(String id) {
+        return engine.isRunning(id) || (external != null && external.isRunning(id));
+    }
+
+    private void stopJob(String id) {
+        if (engine.isRunning(id)) engine.pause(id);
+        else if (external != null) external.stop(id);
+    }
+
+    private void awaitStopped(String id) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (running(id) && System.currentTimeMillis() < deadline) Thread.sleep(20);
+    }
+
+    /** Creates a MEDIA download row handled by the external runner (HLS). */
+    public DownloadView createExternal(String url, String pageUrl, String fileName, String mimeType, Map<String, String> internalHeaders) {
+        entitlements.require(Feature.DOWNLOAD_BASIC);
+        URI uri = urlPolicy.validate(url);
+        Settings s = settings.get();
+        DownloadCategory cat = categorizer.categorize(fileName, "video/mp4");
+        Path dir = Path.of(s.downloadDir());
+        if (s.autoCategorize() && cat != null) dir = SafeFiles.inside(dir.toAbsolutePath().normalize(), cat.getSubfolder());
+        SafeFiles.ensureDirectory(dir);
+        Download d = new Download();
+        d.setId(UUID.randomUUID().toString());
+        d.setUrl(uri.toString());
+        d.setPageUrl(pageUrl != null ? urlPolicy.parse(pageUrl).toString() : null);
+        d.setFileName(SafeFiles.sanitize(fileName));
+        d.setNameLocked(true);
+        d.setSaveDir(dir.toAbsolutePath().normalize().toString());
+        d.setTempPath(SafeFiles.inside(dir.toAbsolutePath().normalize(), d.getId() + ".wdmpart").toString());
+        d.setCategoryId(cat != null ? cat.getId() : null);
+        d.setStatus(DownloadStatus.QUEUED);
+        d.setConnections(1);
+        d.setMaxRetries(s.retryCount());
+        d.setMimeType(mimeType);
+        d.setSource(DownloadSource.MEDIA);
+        d.setCreatedAt(now());
+        d.setUpdatedAt(now());
+        downloads.save(d);
+        internalHeaders.forEach((k, v) -> {
+            DownloadHeader h = new DownloadHeader();
+            h.setId(UUID.randomUUID().toString());
+            h.setDownloadId(d.getId());
+            h.setName(k);
+            h.setValue(v);
+            headers.save(h);
+        });
+        QueueItem qi = new QueueItem();
+        qi.setId(UUID.randomUUID().toString());
+        qi.setQueueId(MAIN_QUEUE);
+        qi.setDownloadId(d.getId());
+        qi.setPosition(queueItems.maxPosition(MAIN_QUEUE) + 1);
+        queueItems.save(qi);
+        events.info("download", "Added stream " + d.getFileName(), d.getId());
+        publish(d);
+        pump();
+        return view(d);
+    }
+
+    public void externalProgress(String id, long downloaded, Long total, long speed) {
+        live.put(id, new Live(downloaded, speed, 1, now()));
+        downloads.findById(id).ifPresent(d -> {
+            if (total != null) d.setTotalBytes(total);
+            publish(d);
+        });
+    }
+
+    public void externalCompleted(String id, Path file, long size, String sha256) {
+        new Store(id).completed(file, size, sha256);
+    }
+
+    public void externalFailed(String id, String reason) {
+        new Store(id).failed(reason, List.of(), live.containsKey(id) ? live.get(id).downloaded() : 0);
+    }
+
+    public void externalStopped(String id) {
+        new Store(id).paused(List.of(), 0);
+    }
+
     public DownloadService(DownloadRepository downloads, DownloadPartRepository parts, DownloadHeaderRepository headers,
                            QueueItemRepository queueItems, DownloadQueueRepository queues, HistoryEntryRepository history,
                            EngineService engine, UrlPolicy urlPolicy, SettingsService settings,
@@ -192,8 +290,8 @@ public class DownloadService {
 
     public DownloadView pause(String id) {
         Download d = get(id);
-        if (d.getStatus() == DownloadStatus.DOWNLOADING && engine.isRunning(id)) {
-            engine.pause(id); // the job reports PAUSED with its offsets
+        if (d.getStatus() == DownloadStatus.DOWNLOADING && running(id)) {
+            stopJob(id); // the job reports PAUSED with its offsets
         } else if (d.getStatus() == DownloadStatus.QUEUED || d.getStatus() == DownloadStatus.DOWNLOADING) {
             setStatus(d, DownloadStatus.PAUSED, null);
         }
@@ -223,10 +321,10 @@ public class DownloadService {
     public DownloadView cancel(String id) throws InterruptedException {
         Download d = get(id);
         if (d.getStatus() == DownloadStatus.COMPLETED) throw WdmException.conflict("already_completed", "Download already completed");
-        if (engine.isRunning(id)) {
+        if (running(id)) {
             cancelling.add(id);
-            engine.pause(id);
-            engine.awaitStopped(id, 10_000);
+            stopJob(id);
+            awaitStopped(id);
         }
         d = get(id);
         deleteTemp(d);
@@ -241,10 +339,10 @@ public class DownloadService {
     /** Removes the download (and optionally the finished file). Never touches anything outside its folder. */
     public void delete(String id, boolean deleteFile) throws InterruptedException {
         Download d = get(id);
-        if (engine.isRunning(id)) {
+        if (running(id)) {
             cancelling.add(id);
-            engine.pause(id);
-            engine.awaitStopped(id, 10_000);
+            stopJob(id);
+            awaitStopped(id);
         }
         d = get(id);
         deleteTemp(d);
@@ -287,9 +385,9 @@ public class DownloadService {
 
     /** Stops a running download and puts it back in the queue (used when a queue is stopped). */
     public void requeue(String id) {
-        if (engine.isRunning(id)) {
+        if (running(id)) {
             requeueing.add(id);
-            engine.pause(id);
+            stopJob(id);
         }
     }
 
@@ -299,17 +397,27 @@ public class DownloadService {
     public void pump() {
         synchronized (pumpLock) {
             int global = entitlements.clampConcurrent(settings.get().maxConcurrent());
-            int running = engine.activeCount();
+            int running = engine.activeCount() + (external != null ? external.activeCount() : 0);
             if (running >= global) return;
             for (DownloadQueue q : queues.findAllByOrderByPriorityDescNameAsc()) {
                 if (q.getState() != QueueState.RUNNING) continue;
                 List<QueueItem> items = queueItems.findByQueueIdOrderByPosition(q.getId());
-                int inQueue = (int) items.stream().filter(i -> engine.isRunning(i.getDownloadId())).count();
+                int inQueue = (int) items.stream().filter(i -> running(i.getDownloadId())).count();
                 for (QueueItem item : items) {
                     if (running >= global || inQueue >= q.getMaxConcurrent()) break;
                     Optional<Download> od = downloads.findById(item.getDownloadId());
-                    if (od.isEmpty() || od.get().getStatus() != DownloadStatus.QUEUED || engine.isRunning(item.getDownloadId())) continue;
-                    startJob(od.get());
+                    if (od.isEmpty() || od.get().getStatus() != DownloadStatus.QUEUED || running(item.getDownloadId())) continue;
+                    if (external != null && external.handles(od.get())) {
+                        Download d = od.get();
+                        d.setStatus(DownloadStatus.DOWNLOADING);
+                        d.setErrorMessage(null);
+                        if (d.getStartedAt() == null) d.setStartedAt(now());
+                        downloads.save(d);
+                        publish(d);
+                        external.start(d);
+                    } else {
+                        startJob(od.get());
+                    }
                     running++;
                     inQueue++;
                 }
@@ -323,7 +431,8 @@ public class DownloadService {
             existing.add(new PartState(p.getPartIndex(), p.getStartByte(), p.getEndByte(), p.getDownloadedBytes(), PartState.Status.PENDING));
         }
         Map<String, String> hdrs = new LinkedHashMap<>();
-        headers.findByDownloadId(d.getId()).forEach(h -> hdrs.put(h.getName(), h.getValue()));
+        headers.findByDownloadId(d.getId()).stream().filter(h -> !h.getName().toLowerCase(Locale.ROOT).startsWith("x-wdm-"))
+                .forEach(h -> hdrs.put(h.getName(), h.getValue()));
         int conns = entitlements.has(Feature.DOWNLOAD_MULTITHREAD) ? entitlements.clampConnections(d.getConnections()) : 1;
         var spec = new DownloadJob.Spec(d.getId(), URI.create(d.getUrl()), hdrs, Path.of(d.getSaveDir()),
                 d.isNameLocked() ? d.getFileName() : null, Path.of(d.getTempPath()), conns, d.getMaxRetries(), 1000,
