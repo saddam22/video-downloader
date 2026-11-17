@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: wan-download-manager
+  main:
+    banner-mode: off
+  datasource:
+    # wan.data-dir is resolved by DataDirEnvironmentPostProcessor (per-user application data folder).
+    url: jdbc:sqlite:${wan.data-dir}/wdm.db?foreign_keys=on&journal_mode=WAL&busy_timeout=15000&synchronous=NORMAL
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      # SQLite allows one writer; one pooled connection serialises access and avoids SQLITE_BUSY.
+      maximum-pool-size: 1
+      connection-timeout: 30000
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema; SQLite type affinity makes Hibernate "validate" report false mismatches.
+      # RepositoryRoundTripTest writes and reads every entity instead.
+      ddl-auto: none
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  # Never reachable from the network.
+  address: 127.0.0.1
+  port: ${wan.api-port:0}
+  error:
+    include-message: always
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  file:
+    name: ${wan.data-dir}/logs/wdm.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 7
+  level:
+    root: INFO
+    org.hibernate.SQL: WARN
+
+wan:
+  # Empty values are deliberate: nothing about the WAN Identity Hub deployment is invented.
+  # Sign-in stays disabled until an operator sets the real issuer and registered client id.
+  identity:
+    issuer: ""
+    client-id: ""
+    scopes: "openid profile email offline_access wan_entitlements"
+    redirect-path: /callback
+    login-timeout-seconds: 300
+    hub-web-url: ""
+  licensing:
+    offline-grace-days: 7
+    platform-id: wan-download-manager
+  billing:
+    url: ""
+  security:
+    allow-loopback-downloads: false
+    allow-private-network-downloads: true

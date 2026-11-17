@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "WAN Download Manager",
+  "short_name": "WAN DM",
+  "version": "0.1.0",
+  "description": "Send downloads and detected videos to WAN Download Manager. Download Everything. Manage Smarter.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "WAN Video Grabber",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "contextMenus",
+    "activeTab",
+    "scripting",
+    "webRequest"
+  ],
+  "optional_permissions": [
+    "downloads"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; img-src 'self' https:"
+  },
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "type": "module"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "download-manager@wan.example",
+      "strict_min_version": "128.0"
+    }
+  }
+}

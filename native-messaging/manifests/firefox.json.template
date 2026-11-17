@@ -1,0 +1,7 @@
+{
+  "name": "com.wan.download_manager",
+  "description": "WAN Download Manager",
+  "path": "{{HOST_PATH}}",
+  "type": "stdio",
+  "allowed_extensions": ["download-manager@wan.example"]
+}

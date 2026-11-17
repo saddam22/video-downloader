@@ -1,0 +1,10 @@
+{
+  "name": "com.wan.download_manager",
+  "description": "WAN Download Manager",
+  "path": "{{HOST_PATH}}",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://{{CHROME_EXTENSION_ID}}/",
+    "chrome-extension://{{EDGE_EXTENSION_ID}}/"
+  ]
+}

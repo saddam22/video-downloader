@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>WAN Video Grabber</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="popup.css">
+  <script type="module" src="popup.js"></script>
+</head>
+<body>
+  <header>
+    <img src="icons/icon-48.png" width="28" height="28" alt="">
+    <div>
+      <h1>Video Grabber</h1>
+      <p id="status" data-tone="warn">Connecting…</p>
+    </div>
+    <button id="scan" class="btn ghost" type="button" title="Look for videos on this page">Scan page</button>
+  </header>
+
+  <main id="list" aria-live="polite"></main>
+
+  <form id="link-form">
+    <label for="link">Download a link</label>
+    <div class="row">
+      <input id="link" type="url" required placeholder="https://…" autocomplete="off">
+      <button class="btn primary" type="submit">Add</button>
+    </div>
+    <p id="link-result" class="note" role="status"></p>
+  </form>
+
+  <details>
+    <summary>Detection settings</summary>
+    <label class="toggle"><input id="auto" type="checkbox"> Automatic detection on all sites <small>(asks for site access)</small></label>
+    <label class="toggle"><input id="site" type="checkbox"> <span id="site-label">Detect on this site</span></label>
+    <label class="toggle"><input id="notice" type="checkbox"> Floating notice when a video is found</label>
+    <label class="toggle"><input id="handoff" type="checkbox"> Send browser downloads to WAN <small>(asks for download access; sites that need your login keep using the browser)</small></label>
+  </details>
+  <footer>Protected (DRM) and encrypted streams are never downloaded.</footer>
+</body>
+</html>
