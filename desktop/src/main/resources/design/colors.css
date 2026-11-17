@@ -1,0 +1,33 @@
+/* WAN Download Manager colour tokens (light values; dark-theme.css overrides).
+   Sources: WAN Identity Hub src/styles.css and WANBAHJAHKAS globals.css — see docs/WAN-DESIGN-SYSTEM-AUDIT.md. */
+.root {
+    -wan-navy-950: #050d2b;
+    -wan-navy-900: #0a1640;
+    -wan-navy-800: #0f1f57;
+    -wan-navy-700: #18296e;
+    -wan-primary: #1d5bf5;
+    -wan-primary-600: #1647d4;
+    -wan-primary-50: #edf3ff;
+    -wan-secondary: #0891b2;
+    -wan-accent: #6d28d9;
+    -wan-gold: #fbbf24;
+    -wan-bg: #f3f6fb;
+    -wan-surface: #ffffff;
+    -wan-surface-2: #f7f9fc;
+    -wan-border: #e2e8f1;
+    -wan-border-strong: #c9d3e2;
+    -wan-text: #0e1a33;
+    -wan-text-2: #33415c;
+    -wan-muted: #64748b;
+    -wan-success: #15803d;
+    -wan-success-bg: #e6f7ec;
+    -wan-warning: #b45309;
+    -wan-warning-bg: #fff3df;
+    -wan-danger: #c62828;
+    -wan-danger-bg: #fdeceb;
+    -wan-info-bg: #eaf1ff;
+    -wan-sidebar-bg: linear-gradient(to bottom, #0a1640, #050d2b);
+    -wan-sidebar-text: #c4d4f5;
+    -wan-progress: linear-gradient(to right, #1d5bf5, #6d28d9);
+    -wan-focus: #1d5bf5;
+}

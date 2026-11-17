@@ -1,0 +1,126 @@
+.root { -fx-background-color: -wan-bg; -fx-accent: -wan-primary; -fx-focus-color: -wan-focus; -fx-faint-focus-color: transparent; }
+
+/* ---- Sidebar ---- */
+.wan-sidebar { -fx-background-color: -wan-sidebar-bg; -fx-pref-width: 236; -fx-min-width: 236; -fx-padding: 18 12 14 12; -fx-spacing: 2; }
+.wan-sidebar .brand-name { -fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold; }
+.wan-sidebar .brand-tag { -fx-text-fill: #8fa6d8; -fx-font-size: 10.5px; }
+.wan-sidebar .nav-section { -fx-text-fill: #7083b3; -fx-font-size: 10.5px; -fx-font-weight: bold; -fx-padding: 14 10 4 10; }
+.nav-item { -fx-background-color: transparent; -fx-text-fill: -wan-sidebar-text; -fx-alignment: center-left; -fx-padding: 8 10;
+    -fx-background-radius: 10; -fx-cursor: hand; -fx-font-size: 13px; -fx-graphic-text-gap: 10; }
+.nav-item:hover { -fx-background-color: rgba(255,255,255,0.07); -fx-text-fill: white; }
+.nav-item:selected, .nav-item.active { -fx-background-color: linear-gradient(to right, rgba(59,123,255,0.35), rgba(109,40,217,0.22)); -fx-text-fill: white; }
+.nav-item .badge, .badge { -fx-background-color: -wan-primary; -fx-text-fill: white; -fx-background-radius: 99; -fx-padding: 0 7; -fx-font-size: 11px; }
+.disk-card { -fx-background-color: rgba(255,255,255,0.06); -fx-background-radius: 14; -fx-padding: 12; -fx-spacing: 6; }
+.disk-card .label { -fx-text-fill: #c4d4f5; }
+
+/* ---- Header ---- */
+.wan-header { -fx-background-color: -wan-surface; -fx-border-color: transparent transparent -wan-border transparent; -fx-padding: 12 24; -fx-spacing: 12; -fx-alignment: center-left; }
+.search-field { -fx-pref-width: 300; }
+.avatar { -fx-background-color: linear-gradient(to bottom right, #3b7bff, #6d28d9); -fx-background-radius: 99; -fx-min-width: 34; -fx-min-height: 34;
+    -fx-text-fill: white; -fx-font-weight: bold; -fx-alignment: center; }
+.chip { -fx-background-radius: 99; -fx-padding: 3 10; -fx-font-size: 11.5px; -fx-font-weight: bold; }
+.chip-free { -fx-background-color: -wan-surface-2; -fx-text-fill: -wan-text-2; -fx-border-color: -wan-border; -fx-border-radius: 99; }
+.chip-pro { -fx-background-color: linear-gradient(to right, #1d5bf5, #6d28d9); -fx-text-fill: white; }
+.chip-business { -fx-background-color: linear-gradient(to right, #b45309, #fbbf24); -fx-text-fill: #1b1405; }
+.chip-ok { -fx-background-color: -wan-success-bg; -fx-text-fill: -wan-success; }
+.chip-warn { -fx-background-color: -wan-warning-bg; -fx-text-fill: -wan-warning; }
+.chip-err { -fx-background-color: -wan-danger-bg; -fx-text-fill: -wan-danger; }
+.chip-info { -fx-background-color: -wan-info-bg; -fx-text-fill: -wan-primary; }
+
+/* ---- Buttons ---- */
+.wan-button { -fx-background-radius: 10; -fx-padding: 8 14; -fx-font-weight: bold; -fx-cursor: hand; -fx-graphic-text-gap: 8; -fx-border-radius: 10; }
+.wan-button.primary { -fx-background-color: -wan-primary; -fx-text-fill: white; -fx-effect: dropshadow(gaussian, rgba(29,91,245,0.35), 14, 0, 0, 4); }
+.wan-button.primary:hover { -fx-background-color: -wan-primary-600; }
+.wan-button.secondary { -fx-background-color: -wan-surface; -fx-text-fill: -wan-text; -fx-border-color: -wan-border-strong; }
+.wan-button.secondary:hover { -fx-background-color: -wan-surface-2; }
+.wan-button.ghost { -fx-background-color: transparent; -fx-text-fill: -wan-text-2; }
+.wan-button.ghost:hover { -fx-background-color: -wan-surface-2; }
+.wan-button.danger { -fx-background-color: -wan-danger-bg; -fx-text-fill: -wan-danger; }
+.wan-button:disabled { -fx-opacity: 0.5; }
+.wan-button:focused { -fx-border-color: -wan-focus; -fx-border-width: 2; }
+.icon-button { -fx-background-color: transparent; -fx-background-radius: 8; -fx-padding: 6; -fx-cursor: hand; }
+.icon-button:hover { -fx-background-color: -wan-surface-2; }
+
+/* ---- Cards ---- */
+.wan-card { -fx-background-color: -wan-surface; -fx-background-radius: 14; -fx-border-color: -wan-border; -fx-border-radius: 14; -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, rgba(15,30,70,0.08), 18, 0, 0, 6); }
+.stat-card { -fx-min-width: 170; -fx-spacing: 6; }
+.stat-icon { -fx-background-radius: 10; -fx-min-width: 34; -fx-min-height: 34; -fx-alignment: center; }
+.hero-card { -fx-background-color: linear-gradient(to bottom right, #0a1640, #18296e 60%, #3b1f8f); -fx-background-radius: 18; -fx-padding: 20; }
+.hero-card .label { -fx-text-fill: #e3ecff; }
+
+/* ---- Inputs ---- */
+.text-field, .text-area, .combo-box, .spinner, .date-picker { -fx-background-color: -wan-surface; -fx-background-radius: 10; -fx-border-color: -wan-border-strong;
+    -fx-border-radius: 10; -fx-text-fill: -wan-text; -fx-prompt-text-fill: -wan-muted; -fx-padding: 6 10; }
+.text-area .content { -fx-background-color: -wan-surface; -fx-background-radius: 10; }
+.text-field:focused, .text-area:focused, .combo-box:focused { -fx-border-color: -wan-focus; -fx-border-width: 1.5; }
+.combo-box .list-cell { -fx-text-fill: -wan-text; -fx-background-color: transparent; }
+.combo-box-popup .list-view, .context-menu { -fx-background-color: -wan-surface; -fx-border-color: -wan-border; }
+.combo-box-popup .list-cell, .menu-item .label { -fx-text-fill: -wan-text; }
+.combo-box-popup .list-cell:hover, .menu-item:focused { -fx-background-color: -wan-primary-50; }
+.field-label { -fx-text-fill: -wan-text-2; -fx-font-weight: bold; -fx-font-size: 12px; }
+.check-box { -fx-text-fill: -wan-text; }
+.check-box .box { -fx-background-color: -wan-surface; -fx-border-color: -wan-border-strong; -fx-border-radius: 5; -fx-background-radius: 5; }
+.check-box:selected .box { -fx-background-color: -wan-primary; -fx-border-color: -wan-primary; }
+.check-box:selected .mark { -fx-background-color: white; }
+
+/* ---- Toggle (WanToggle) ---- */
+.wan-toggle { -fx-background-color: -wan-border-strong; -fx-background-radius: 99; -fx-pref-width: 40; -fx-pref-height: 22; -fx-cursor: hand; }
+.wan-toggle.on { -fx-background-color: -wan-primary; }
+.wan-toggle .thumb { -fx-background-color: white; -fx-background-radius: 99; -fx-pref-width: 16; -fx-pref-height: 16; }
+
+/* ---- Progress ---- */
+.wan-progress .track { -fx-background-color: -wan-surface-2; -fx-background-radius: 99; -fx-border-color: -wan-border; -fx-border-radius: 99; }
+.wan-progress .bar { -fx-background-color: -wan-progress; -fx-background-radius: 99; }
+.wan-progress.done .bar { -fx-background-color: -wan-success; }
+.wan-progress.paused .bar { -fx-background-color: -wan-warning; }
+.wan-progress.failed .bar { -fx-background-color: -wan-danger; }
+.progress-bar > .bar { -fx-background-color: -wan-progress; -fx-background-radius: 99; -fx-background-insets: 0; }
+.progress-bar > .track { -fx-background-color: -wan-surface-2; -fx-background-radius: 99; }
+
+/* ---- Tables / lists ---- */
+.table-view, .list-view { -fx-background-color: -wan-surface; -fx-background-radius: 14; -fx-border-color: -wan-border; -fx-border-radius: 14; -fx-padding: 4; }
+.table-view .column-header-background { -fx-background-color: -wan-surface; -fx-border-color: transparent transparent -wan-border transparent; }
+.table-view .column-header, .table-view .filler { -fx-background-color: transparent; -fx-size: 34; }
+.table-view .column-header .label { -fx-text-fill: -wan-muted; -fx-font-weight: bold; -fx-font-size: 11.5px; }
+.table-row-cell { -fx-background-color: -wan-surface; -fx-border-color: transparent transparent -wan-border transparent; -fx-cell-size: 46; }
+.table-row-cell:hover { -fx-background-color: -wan-surface-2; }
+.table-row-cell:selected { -fx-background-color: -wan-primary-50; }
+.table-cell { -fx-text-fill: -wan-text; -fx-alignment: center-left; -fx-border-color: transparent; }
+.list-cell { -fx-background-color: -wan-surface; -fx-text-fill: -wan-text; -fx-padding: 8 10; }
+.list-cell:filled:hover { -fx-background-color: -wan-surface-2; }
+.list-cell:filled:selected { -fx-background-color: -wan-primary-50; -fx-text-fill: -wan-text; }
+.table-view .placeholder .label, .list-view .placeholder .label { -fx-text-fill: -wan-muted; }
+
+/* ---- Tabs ---- */
+.tab-pane .tab-header-background { -fx-background-color: transparent; }
+.tab-pane .tab { -fx-background-color: transparent; -fx-padding: 6 14; }
+.tab-pane .tab .tab-label { -fx-text-fill: -wan-muted; -fx-font-weight: bold; }
+.tab-pane .tab:selected { -fx-border-color: transparent transparent -wan-primary transparent; -fx-border-width: 0 0 2 0; }
+.tab-pane .tab:selected .tab-label { -fx-text-fill: -wan-primary; }
+.tab-pane:focused > .tab-header-area > .headers-region > .tab:selected .focus-indicator { -fx-border-color: transparent; }
+
+/* ---- Notifications / dialogs / empty states ---- */
+.wan-notification { -fx-background-color: -wan-surface; -fx-background-radius: 14; -fx-border-color: -wan-border; -fx-border-radius: 14; -fx-padding: 12 14;
+    -fx-spacing: 10; -fx-effect: dropshadow(gaussian, rgba(5,13,43,0.35), 24, 0, 0, 8); -fx-max-width: 380; }
+.wan-notification.success { -fx-border-color: -wan-success; }
+.wan-notification.error { -fx-border-color: -wan-danger; }
+.wan-dialog { -fx-background-color: -wan-surface; -fx-background-radius: 20; -fx-padding: 22; -fx-spacing: 14; }
+.dialog-pane { -fx-background-color: -wan-surface; }
+.dialog-pane .label { -fx-text-fill: -wan-text; }
+.wan-empty { -fx-alignment: center; -fx-spacing: 8; -fx-padding: 40; }
+.wan-empty .empty-icon { -fx-background-color: -wan-primary-50; -fx-background-radius: 99; -fx-min-width: 56; -fx-min-height: 56; -fx-alignment: center; }
+.banner { -fx-background-radius: 12; -fx-padding: 10 14; -fx-spacing: 10; -fx-alignment: center-left; }
+.banner.info { -fx-background-color: -wan-info-bg; }
+.banner.warn { -fx-background-color: -wan-warning-bg; }
+.banner.err { -fx-background-color: -wan-danger-bg; }
+.scroll-pane, .scroll-pane > .viewport { -fx-background-color: transparent; }
+.separator .line { -fx-border-color: -wan-border; }
+.chart { -fx-padding: 0; }
+.chart-plot-background { -fx-background-color: transparent; }
+.chart-vertical-grid-lines { -fx-stroke: transparent; }
+.chart-horizontal-grid-lines { -fx-stroke: -wan-border; }
+.axis { -fx-tick-label-fill: -wan-muted; }
+.chart-series-area-fill { -fx-fill: linear-gradient(to bottom, rgba(59,123,255,0.45), rgba(109,40,217,0.02)); }
+.chart-series-area-line { -fx-stroke: -wan-primary; -fx-stroke-width: 2; }
+.tooltip { -fx-background-color: #0a1640; -fx-text-fill: white; -fx-background-radius: 8; }

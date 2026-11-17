@@ -1,0 +1,26 @@
+/* Dark theme: Identity Hub dark tokens, primary lifted for contrast on navy. */
+.root {
+    -wan-bg: #0b1222;
+    -wan-surface: #121b2f;
+    -wan-surface-2: #17223a;
+    -wan-border: #23314d;
+    -wan-border-strong: #31415f;
+    -wan-text: #e7edf8;
+    -wan-text-2: #c3cde0;
+    -wan-muted: #8d9bb5;
+    -wan-primary: #3b7bff;
+    -wan-primary-600: #1d5bf5;
+    -wan-primary-50: #15254a;
+    -wan-secondary: #22d3ee;
+    -wan-accent: #a78bfa;
+    -wan-success: #4ade80;
+    -wan-success-bg: #10301f;
+    -wan-warning: #fbbf24;
+    -wan-warning-bg: #3a2a0d;
+    -wan-danger: #f87171;
+    -wan-danger-bg: #3a1517;
+    -wan-info-bg: #15254a;
+    -wan-sidebar-bg: linear-gradient(to bottom, #0a1640, #050d2b);
+    -wan-progress: linear-gradient(to right, #3b7bff, #a78bfa);
+    -wan-focus: #8fb3ff;
+}

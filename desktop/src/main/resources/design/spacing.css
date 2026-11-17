@@ -1,0 +1,10 @@
+/* 4-px spacing scale and radii 8/10/14/20 (Identity Hub --r-sm/--r/--r-lg/--r-xl). */
+.gap-xs { -fx-spacing: 4; -fx-hgap: 4; -fx-vgap: 4; }
+.gap-sm { -fx-spacing: 8; -fx-hgap: 8; -fx-vgap: 8; }
+.gap-md { -fx-spacing: 12; -fx-hgap: 12; -fx-vgap: 12; }
+.gap-lg { -fx-spacing: 16; -fx-hgap: 16; -fx-vgap: 16; }
+.gap-xl { -fx-spacing: 24; -fx-hgap: 24; -fx-vgap: 24; }
+.pad-md { -fx-padding: 12; }
+.pad-lg { -fx-padding: 16; }
+.pad-xl { -fx-padding: 24; }
+.page { -fx-padding: 24 28 28 28; -fx-spacing: 18; }

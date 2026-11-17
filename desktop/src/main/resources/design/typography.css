@@ -1,0 +1,11 @@
+/* Inter / Segoe UI for Latin; Bengali falls back to the system's Bengali font (Nirmala UI on Windows). */
+.root { -fx-font-family: "Segoe UI", "Inter", "Nirmala UI", "Noto Sans Bengali", "System"; -fx-font-size: 13px; }
+.h1 { -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: -wan-text; }
+.h2 { -fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: -wan-text; }
+.h3 { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: -wan-text; }
+.body { -fx-text-fill: -wan-text-2; }
+.muted { -fx-text-fill: -wan-muted; }
+.small { -fx-font-size: 11.5px; }
+.stat-value { -fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: -wan-text; }
+.mono { -fx-font-family: "Cascadia Mono", "Consolas", "monospace"; }
+.label { -fx-text-fill: -wan-text; }

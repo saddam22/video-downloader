@@ -1,0 +1,5 @@
+/* Light theme: the defaults in colors.css; kept as a file so themes are symmetric and overridable. */
+.root {
+    -wan-bg: #f3f6fb;
+    -wan-surface: #ffffff;
+}
